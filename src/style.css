@@ -1,0 +1,282 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Aeonik";
+  src: url("../public/Aeonik\ TRIAL/AeonikTRIAL-Regular.otf");
+}
+@font-face {
+  font-family: "Aeonik";
+  font-weight: 700;
+  src: url("../public/Aeonik\ TRIAL/AeonikTRIAL-Bold.otf");
+}
+
+body {
+  font-family: "Aeonik", Georgia, serif;
+  background: rgb(19, 19, 19);
+}
+
+* {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: none;
+}
+
+body {
+  line-height: 1.15;
+}
+
+#webgl {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  height: 100dvh;
+}
+
+#app {
+  min-height: 100dvh;
+  z-index: 10;
+  position: relative;
+  pointer-events: none;
+}
+
+/* ─── Loading Screen ─────────────────────────────────────── */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgb(19, 19, 19);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  color: rgba(240, 230, 210, 0.6);
+  font-size: clamp(0.75rem, 1.2vmax, 1rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid rgba(240, 230, 210, 0.15);
+  border-top-color: rgba(240, 230, 210, 0.7);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+#loading-screen.is-error #loading-spinner {
+  display: none;
+}
+
+#loading-screen.is-error #loading-message {
+  color: rgba(255, 180, 150, 0.8);
+  text-transform: none;
+  max-width: 400px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ─── Book Popup ─────────────────────────────────────────── */
+#book-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 3vmax, 3rem);
+}
+
+#popup-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#popup-card {
+  position: relative;
+  z-index: 1;
+  background: rgb(22, 20, 18);
+  border: 1px solid rgba(240, 230, 210, 0.08);
+  border-radius: 4px;
+  max-width: 860px;
+  width: 100%;
+  max-height: 90dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#popup-close {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.4rem;
+  z-index: 2;
+  background: none;
+  border: none;
+  color: rgba(240, 230, 210, 0.4);
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+  padding: 0.2rem 0.4rem;
+}
+
+#popup-close:hover {
+  color: rgba(240, 230, 210, 0.9);
+}
+
+#popup-content {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  overflow: hidden;
+  max-height: 90dvh;
+}
+
+#popup-cover-side {
+  width: clamp(160px, 22vw, 280px);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+#popup-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#popup-info-side {
+  padding: clamp(1.5rem, 4vmax, 3rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: rgba(240, 230, 210, 0.7);
+}
+
+#popup-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: clamp(0.65rem, 1vmax, 0.8rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(196, 169, 125, 0.8);
+}
+
+.badge-hash {
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+#popup-rank-num {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: rgb(196, 169, 125);
+}
+
+.badge-label {
+  opacity: 0.7;
+}
+
+#popup-title {
+  font-size: clamp(1.2rem, 2.8vmax, 2rem);
+  font-weight: 700;
+  color: rgba(240, 230, 210, 0.95);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+#popup-author {
+  font-size: clamp(0.85rem, 1.4vmax, 1rem);
+  color: rgba(196, 169, 125, 0.85);
+  margin: 0;
+}
+
+#popup-meta {
+  display: flex;
+  gap: 1.5rem;
+  font-size: clamp(0.65rem, 1vmax, 0.78rem);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.45;
+  flex-wrap: wrap;
+}
+
+#popup-description {
+  font-size: clamp(0.82rem, 1.2vmax, 0.95rem);
+  line-height: 1.65;
+  opacity: 0.65;
+  margin: 0;
+  flex: 1;
+}
+
+#popup-amazon-link {
+  display: inline-block;
+  margin-top: auto;
+  padding: 0.65rem 1.4rem;
+  border: 1px solid rgba(196, 169, 125, 0.35);
+  color: rgba(196, 169, 125, 0.85);
+  font-size: clamp(0.7rem, 1.1vmax, 0.85rem);
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  align-self: flex-start;
+  pointer-events: all;
+}
+
+#popup-amazon-link:hover {
+  background: rgba(196, 169, 125, 0.12);
+  border-color: rgba(196, 169, 125, 0.6);
+  color: rgb(196, 169, 125);
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 560px) {
+  #popup-content {
+    grid-template-columns: 1fr;
+    grid-template-rows: 260px 1fr;
+  }
+
+  #popup-cover-side {
+    width: 100%;
+    height: 260px;
+  }
+}
+
+/* ─── Book strip (footer) ────────────────────────────────── */
+#book-strip {
+  transition: opacity 0.4s ease;
+}
+
+/* ─── Misc ───────────────────────────────────────────────── */
+[data-page] {
+  --turn-page: 0;
+  --data-page-index: 0;
+  --delta-index: calc(
+    (var(--data-current-page-index) - var(--data-page-index))
+  );
+  transform: rotate(calc(-180deg * var(--turn-page)))
+    translateY(calc(-4px * (var(--delta-index) * 2 - 1) * var(--turn-page)));
+}
+
+/* Make popup interactive but leave the canvas UI non-interactive */
+#book-popup,
+#loading-screen {
+  pointer-events: all;
+}
