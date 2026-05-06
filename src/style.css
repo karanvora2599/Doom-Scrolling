@@ -40,6 +40,14 @@ body {
   pointer-events: none;
 }
 
+/* ─── Logo ───────────────────────────────────────────────── */
+#site-logo {
+  height: clamp(32px, 4.5vmax, 64px);
+  width: auto;
+  mix-blend-mode: screen; /* white logo pixels stay white; dark/grey fill disappears on dark bg */
+  opacity: 0.9;
+}
+
 /* ─── Loading Screen ─────────────────────────────────────── */
 #loading-screen {
   position: fixed;
