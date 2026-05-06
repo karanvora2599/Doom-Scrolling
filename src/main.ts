@@ -3,7 +3,7 @@ import Canvas from "./canvas"
 import Scroll from "./scroll"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
-import { fetchNYTBooks, Book } from "./books"
+import { fetchNYTBooks, fetchList, BACKGROUND_LISTS, Book } from "./books"
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -22,6 +22,17 @@ class App {
   render() {
     this.canvas.render()
     requestAnimationFrame(this.render.bind(this))
+  }
+}
+
+async function loadExtraLists(app: App) {
+  for (const list of BACKGROUND_LISTS) {
+    try {
+      const newBooks = await fetchList(NYT_API_KEY!, list)
+      await app.canvas.magazine.extendFeed(newBooks)
+    } catch {
+      // silently skip failed lists
+    }
   }
 }
 
@@ -56,6 +67,8 @@ async function init() {
         loadingScreen.style.display = "none"
       },
     })
+
+    loadExtraLists(app)
   } catch (err) {
     loadingMessage.textContent = `Error: ${(err as Error).message}`
     loadingScreen.classList.add("is-error")

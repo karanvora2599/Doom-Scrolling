@@ -104,8 +104,9 @@ export default class Canvas {
   onClick() {
     if (!this.magazine?.isReady || this.popup.isOpen) return
     const idx = this.magazine.getFrontmostBookIndex()
-    if (idx >= 0 && this.books[idx]) {
-      this.popup.show(this.books[idx])
+    const book = this.magazine.books[idx]
+    if (idx >= 0 && book) {
+      this.popup.show(book)
     }
   }
 
@@ -136,11 +137,11 @@ export default class Canvas {
   }
 
   updateBookStrip() {
-    if (!this.magazine?.isReady || this.books.length === 0) return
+    if (!this.magazine?.isReady || this.magazine.books.length === 0) return
     const idx = this.magazine.activeBookIndex
     if (idx === this.lastActiveBookIndex) return
     this.lastActiveBookIndex = idx
-    const book = this.books[idx]
+    const book = this.magazine.books[idx]
     if (!book) return
     this.bookStripTitle.textContent = `${book.title}  —  ${book.author}`
     this.bookStripRank.textContent = `#${book.rank} This Week  ·  Click to learn more`

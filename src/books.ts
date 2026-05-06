@@ -111,18 +111,7 @@ export async function loadBookCover(book: Book): Promise<HTMLImageElement> {
   return generatePlaceholderImage(book.title, book.author)
 }
 
-export async function fetchNYTBooks(apiKey: string): Promise<Book[]> {
-  const url = `https://api.nytimes.com/svc/books/v3/lists/current/hardcover-fiction.json?api-key=${apiKey}`
-  const response = await fetch(url)
-
-  if (!response.ok) {
-    throw new Error(
-      `NYT API returned ${response.status}. Check your API key.`
-    )
-  }
-
-  const data = await response.json()
-
+function mapBooks(data: any): Book[] {
   return data.results.books.map((b: any): Book => ({
     title: b.title,
     author: b.author,
@@ -137,3 +126,33 @@ export async function fetchNYTBooks(apiKey: string): Promise<Book[]> {
     isbn10: b.primary_isbn10,
   }))
 }
+
+export async function fetchNYTBooks(apiKey: string): Promise<Book[]> {
+  const url = `https://api.nytimes.com/svc/books/v3/lists/current/hardcover-fiction.json?api-key=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`NYT API returned ${response.status}. Check your API key.`)
+  }
+  return mapBooks(await response.json())
+}
+
+export async function fetchList(apiKey: string, list: string): Promise<Book[]> {
+  try {
+    const url = `https://api.nytimes.com/svc/books/v3/lists/current/${list}.json?api-key=${apiKey}`
+    const response = await fetch(url)
+    if (!response.ok) return []
+    return mapBooks(await response.json())
+  } catch {
+    return []
+  }
+}
+
+export const BACKGROUND_LISTS = [
+  "hardcover-nonfiction",
+  "paperback-trade-fiction",
+  "young-adult-hardcover",
+  "graphic-books-and-manga",
+  "combined-print-and-e-book-fiction",
+  "science",
+  "business-books",
+]

@@ -15,19 +15,12 @@ interface Props {
 }
 
 interface ImageInfo {
-  width: number
-  height: number
-  aspectRatio: number
-  uvs: {
-    xStart: number
-    xEnd: number
-    yStart: number
-    yEnd: number
-  }
+  uvs: { xStart: number; xEnd: number; yStart: number; yEnd: number }
 }
 
-const COVER_W = 512
-const COVER_H = 768
+const ATLAS_COLS = 10
+const COVER_W = 256
+const COVER_H = 384
 
 export default class Magazine {
   scene: THREE.Scene
@@ -46,6 +39,9 @@ export default class Magazine {
   books: Book[]
   activeBookIndex: number = 0
   isReady: boolean = false
+  feedOffset: number = 0
+
+  private loadedImages: HTMLImageElement[] = []
 
   touch: { startX: number; lastX: number; isActive: boolean }
 
@@ -64,6 +60,7 @@ export default class Magazine {
     this.loadTextureAtlas().then(() => {
       this.createMaterial()
       this.createMeshes()
+      this.updateFeedUVs()
 
       const anim = gsap.timeline()
 
@@ -87,48 +84,68 @@ export default class Magazine {
     })
   }
 
-  async loadTextureAtlas() {
-    const images = await Promise.all(
-      this.books.map((book) => loadBookCover(book))
-    )
+  private buildAtlas(images: HTMLImageElement[]) {
+    const totalRows = Math.ceil(images.length / ATLAS_COLS)
+    const atlasW = ATLAS_COLS * COVER_W
+    const atlasH = totalRows * COVER_H
 
-    const totalHeight = images.length * COVER_H
     const canvas = document.createElement("canvas")
-    canvas.width = COVER_W
-    canvas.height = totalHeight
+    canvas.width = atlasW
+    canvas.height = atlasH
     const ctx = canvas.getContext("2d")!
 
-    let currentY = 0
-    this.imageInfos = images.map((img) => {
-      // Cover-fit: fill the tile while preserving aspect ratio
+    ctx.fillStyle = "#131313"
+    ctx.fillRect(0, 0, atlasW, atlasH)
+
+    this.imageInfos = images.map((img, idx) => {
+      const col = idx % ATLAS_COLS
+      const row = Math.floor(idx / ATLAS_COLS)
+
+      const tileX = col * COVER_W
+      const tileY = row * COVER_H
+
       const scale = Math.max(COVER_W / img.width, COVER_H / img.height)
       const w = img.width * scale
       const h = img.height * scale
-      const dx = (COVER_W - w) / 2
-      const dy = currentY + (COVER_H - h) / 2
+      const dx = tileX + (COVER_W - w) / 2
+      const dy = tileY + (COVER_H - h) / 2
 
-      ctx.fillStyle = "#131313"
-      ctx.fillRect(0, currentY, COVER_W, COVER_H)
       ctx.drawImage(img, dx, dy, w, h)
 
-      const info: ImageInfo = {
-        width: COVER_W,
-        height: COVER_H,
-        aspectRatio: COVER_W / COVER_H,
+      return {
         uvs: {
-          xStart: 0,
-          xEnd: 1,
-          yStart: 1 - currentY / totalHeight,
-          yEnd: 1 - (currentY + COVER_H) / totalHeight,
+          xStart: col / ATLAS_COLS,
+          xEnd: (col + 1) / ATLAS_COLS,
+          yStart: 1 - (row + 1) / totalRows,
+          yEnd: 1 - row / totalRows,
         },
       }
-
-      currentY += COVER_H
-      return info
     })
 
-    this.atlasTexture = new THREE.Texture(canvas)
-    this.atlasTexture.needsUpdate = true
+    if (this.atlasTexture) {
+      this.atlasTexture.image = canvas
+      this.atlasTexture.needsUpdate = true
+    } else {
+      this.atlasTexture = new THREE.Texture(canvas)
+      this.atlasTexture.needsUpdate = true
+    }
+  }
+
+  async loadTextureAtlas() {
+    const images = await Promise.all(this.books.map((b) => loadBookCover(b)))
+    this.loadedImages = images
+    this.buildAtlas(images)
+  }
+
+  async extendFeed(newBooks: Book[]) {
+    const existingTitles = new Set(this.books.map((b) => b.title))
+    const unique = newBooks.filter((b) => !existingTitles.has(b.title))
+    if (unique.length === 0) return
+
+    const newImages = await Promise.all(unique.map((b) => loadBookCover(b)))
+    this.books.push(...unique)
+    this.loadedImages.push(...newImages)
+    this.buildAtlas(this.loadedImages)
   }
 
   createMaterial() {
@@ -218,11 +235,6 @@ export default class Magazine {
     const aIndex = new Float32Array(this.meshCount)
 
     for (let i = 0; i < this.meshCount; i++) {
-      const imageIndex = i % this.imageInfos.length
-      aTextureCoords[i * 4 + 0] = this.imageInfos[imageIndex].uvs.xStart
-      aTextureCoords[i * 4 + 1] = this.imageInfos[imageIndex].uvs.xEnd
-      aTextureCoords[i * 4 + 2] = this.imageInfos[imageIndex].uvs.yStart
-      aTextureCoords[i * 4 + 3] = this.imageInfos[imageIndex].uvs.yEnd
       aIndex[i] = i
     }
 
@@ -238,29 +250,62 @@ export default class Magazine {
     this.scene.add(this.instancedMesh)
   }
 
-  // Replicate shader Z-wrapping to find the book visually closest to the camera.
-  // Camera is at z=6 looking down -Z; frontmost = largest wrappedZ below 5.5.
-  getFrontmostBookIndex(): number {
-    if (this.books.length === 0) return -1
-    const maxZ =
-      this.meshCount * (this.pageSpacing + this.pageThickness) * 0.5
-    let bestZ = -Infinity
-    let frontIndex = 0
+  // Replicates shader Z-wrapping math; returns sorted list of meshes front→back.
+  private computeMeshRanks(): { i: number; z: number }[] {
+    const maxZ = this.meshCount * (this.pageSpacing + this.pageThickness) * 0.5
+    const result: { i: number; z: number }[] = []
 
     for (let i = 0; i < this.meshCount; i++) {
-      const boxCenterZ =
-        this.pageSpacing * (-(i - (this.meshCount - 1) * 0.5))
+      const boxCenterZ = this.pageSpacing * (-(i - (this.meshCount - 1) * 0.5))
       const centerZProgress = boxCenterZ - this.scrollY.current
       const raw = ((centerZProgress + maxZ) % (2 * maxZ)) + 2 * maxZ
       const wrappedZ = (raw % (2 * maxZ)) - maxZ
-
-      if (wrappedZ > bestZ && wrappedZ < 5.5) {
-        bestZ = wrappedZ
-        frontIndex = i % this.books.length
-      }
+      result.push({ i, z: wrappedZ })
     }
 
-    return frontIndex
+    result.sort((a, b) => b.z - a.z) // front (high Z) first
+    return result
+  }
+
+  updateFeedUVs() {
+    if (!this.instancedMesh || this.imageInfos.length === 0) return
+
+    const n = this.imageInfos.length
+    this.feedOffset = Math.round(this.scrollY.current)
+
+    const ranks = this.computeMeshRanks()
+    const attr = this.instancedMesh.geometry.attributes
+      .aTextureCoords as THREE.InstancedBufferAttribute
+
+    let changed = false
+    for (let rank = 0; rank < ranks.length; rank++) {
+      const { i } = ranks[rank]
+      const bookIdx = ((this.feedOffset - rank) % n + n) % n
+      const uvs = this.imageInfos[bookIdx].uvs
+      const base = i * 4
+
+      if (
+        attr.array[base] !== uvs.xStart ||
+        attr.array[base + 1] !== uvs.xEnd ||
+        attr.array[base + 2] !== uvs.yStart ||
+        attr.array[base + 3] !== uvs.yEnd
+      ) {
+        ;(attr.array as Float32Array)[base] = uvs.xStart
+        ;(attr.array as Float32Array)[base + 1] = uvs.xEnd
+        ;(attr.array as Float32Array)[base + 2] = uvs.yStart
+        ;(attr.array as Float32Array)[base + 3] = uvs.yEnd
+        changed = true
+      }
+    }
+    if (changed) attr.needsUpdate = true
+
+    this.activeBookIndex = ((this.feedOffset % n) + n) % n
+  }
+
+  getFrontmostBookIndex(): number {
+    if (this.books.length === 0) return -1
+    const n = this.books.length
+    return ((this.feedOffset % n) + n) % n
   }
 
   onResize(sizes: Size) {
@@ -277,9 +322,7 @@ export default class Magazine {
       this.material.uniforms.uScrollY.value = this.scrollY.current
       this.material.uniforms.uSpeedY.value *= 0.835
 
-      if (this.isReady) {
-        this.activeBookIndex = this.getFrontmostBookIndex()
-      }
+      this.updateFeedUVs()
     }
   }
 }
